@@ -16,9 +16,9 @@ public struct Email {
     public let body: String
     public let isBodyHtml: Bool
     public let replyTo: EmailAddress?
-    public let reference : String?
+    public let reference: String?
     public let dateFormatted: String
-    public let uuid : String
+    public let uuid: String
 
     internal var attachments: [Attachment] = []
 
@@ -30,12 +30,11 @@ public struct Email {
                 body: String,
                 isBodyHtml: Bool = false,
                 replyTo: EmailAddress? = nil,
-                reference : String? = nil
-    ) throws {
-        if (to?.isEmpty ?? true) == true && (cc?.isEmpty ?? true) == true && (bcc?.isEmpty ?? true) == true {
+                reference: String? = nil) throws {
+        if (to?.isEmpty ?? true) == true, (cc?.isEmpty ?? true) == true, (bcc?.isEmpty ?? true) == true {
             throw EmailError.recipientNotSpecified
         }
-        
+
         self.from = from
         self.to = to
         self.cc = cc
@@ -45,54 +44,53 @@ public struct Email {
         self.isBodyHtml = isBodyHtml
         self.replyTo = replyTo
         self.reference = reference
-        
+
         let date = Date()
         let dateFormatter = DateFormatter()
         dateFormatter.locale = Locale(identifier: "en_US")
         dateFormatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss Z"
 
-        self.dateFormatted = dateFormatter.string(from: date)
-        self.uuid = "<\(date.timeIntervalSince1970)\(self.from.address.drop { $0 != "@" })>"
+        dateFormatted = dateFormatter.string(from: date)
+        uuid = "<\(date.timeIntervalSince1970)\(self.from.address.drop { $0 != "@" })>"
     }
 
     public mutating func addAttachment(_ attachment: Attachment) {
-        self.attachments.append(attachment)
+        attachments.append(attachment)
     }
 }
 
 extension Email {
-    internal func write(to out: inout ByteBuffer) {
+    func write(to out: inout ByteBuffer) {
+        out.writeString("From: \(formatMIME(emailAddress: from))\r\n")
 
-        out.writeString("From: \(self.formatMIME(emailAddress: self.from))\r\n")
-
-        if let to = self.to {
+        if let to = to {
             let toAddresses = to.map { self.formatMIME(emailAddress: $0) }.joined(separator: ", ")
             out.writeString("To: \(toAddresses)\r\n")
         }
 
-        if let cc = self.cc {
+        if let cc = cc {
             let ccAddresses = cc.map { self.formatMIME(emailAddress: $0) }.joined(separator: ", ")
             out.writeString("Cc: \(ccAddresses)\r\n")
         }
 
-        if let replyTo = self.replyTo {
-            out.writeString("Reply-to: \(self.formatMIME(emailAddress:replyTo))\r\n")
+        if let replyTo = replyTo {
+            out.writeString("Reply-to: \(formatMIME(emailAddress: replyTo))\r\n")
         }
 
-        out.writeString("Subject: \(self.subject)\r\n")
-        out.writeString("Date: \(self.dateFormatted)\r\n")
-        out.writeString("Message-ID: \(self.uuid)\r\n")
+        out.writeString("Subject: \(subject)\r\n")
+        out.writeString("Date: \(dateFormatted)\r\n")
+        out.writeString("Message-ID: \(uuid)\r\n")
 
-        if let reference = self.reference {
+        if let reference = reference {
             out.writeString("In-Reply-To: \(reference)\r\n")
             out.writeString("References: \(reference)\r\n")
         }
 
         let boundary = self.boundary()
-        if self.attachments.count > 0 {
+        if !attachments.isEmpty {
             out.writeString("Content-type: multipart/mixed; boundary=\"\(boundary)\"\r\n")
             out.writeString("Mime-Version: 1.0\r\n\r\n")
-        } else if self.isBodyHtml {
+        } else if isBodyHtml {
             out.writeString("Content-Type: text/html; charset=\"UTF-8\"\r\n")
             out.writeString("Mime-Version: 1.0\r\n\r\n")
         } else {
@@ -100,30 +98,29 @@ extension Email {
             out.writeString("Mime-Version: 1.0\r\n\r\n")
         }
 
-        if self.attachments.count > 0 {
-
-            if self.isBodyHtml {
+        if !attachments.isEmpty {
+            if isBodyHtml {
                 out.writeString("--\(boundary)\r\n")
                 out.writeString("Content-Type: text/html; charset=\"UTF-8\"\r\n\r\n")
-                out.writeString("\(self.body)\r\n")
+                out.writeString("\(body)\r\n")
                 out.writeString("--\(boundary)\r\n")
             } else {
                 out.writeString("--\(boundary)\r\n")
                 out.writeString("Content-Type: text/plain; charset=\"UTF-8\"\r\n\r\n")
-                out.writeString("\(self.body)\r\n\r\n")
+                out.writeString("\(body)\r\n\r\n")
                 out.writeString("--\(boundary)\r\n")
             }
 
-            for attachment in self.attachments {
+            for attachment in attachments {
                 out.writeString("Content-type: \(attachment.contentType)\r\n")
                 out.writeString("Content-Transfer-Encoding: base64\r\n")
                 out.writeString("Content-Disposition: attachment; filename=\"\(attachment.name)\"\r\n\r\n")
-                out.writeString("\(attachment.data.base64EncodedString())\r\n")
+                out.writeString("\(attachment.data.base64EncodedString(options: [.lineLength76Characters]))\r\n")
                 out.writeString("--\(boundary)\r\n")
             }
 
         } else {
-            out.writeString(self.body)
+            out.writeString(body)
         }
 
         out.writeString("\r\n.")
