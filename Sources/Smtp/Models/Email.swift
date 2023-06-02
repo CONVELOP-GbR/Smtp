@@ -131,7 +131,10 @@ extension Email {
     }
 
     func formatMIME(emailAddress: EmailAddress) -> String {
-        if let name = emailAddress.name {
+        let name = Data()
+        if let namePlain = emailAddress.name,
+           let nameEncoded = namePlain.data(using: .ascii, allowLossyConversion: true),
+           let name = String(data: nameEncoded, encoding: .ascii) {
             return "\(name) <\(emailAddress.address)>"
         } else {
             return emailAddress.address
