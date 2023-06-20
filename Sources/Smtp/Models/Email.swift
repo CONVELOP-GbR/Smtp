@@ -77,7 +77,7 @@ extension Email {
             out.writeString("Reply-to: \(formatMIME(emailAddress: replyTo))\r\n")
         }
 
-        out.writeString("Subject: \(subject)\r\n")
+        out.writeString("Subject: =?utf-8?B?\(subject.base64String())?=\r\n")
         out.writeString("Date: \(dateFormatted)\r\n")
         out.writeString("Message-ID: \(uuid)\r\n")
 
@@ -131,11 +131,8 @@ extension Email {
     }
 
     func formatMIME(emailAddress: EmailAddress) -> String {
-        let name = Data()
-        if let namePlain = emailAddress.name,
-           let nameEncoded = namePlain.data(using: .ascii, allowLossyConversion: true),
-           let name = String(data: nameEncoded, encoding: .ascii) {
-            return "\(name) <\(emailAddress.address)>"
+        if let name = emailAddress.name {
+            return "=?utf-8?B?\(name.base64String())?= <\(emailAddress.address)>"
         } else {
             return emailAddress.address
         }
