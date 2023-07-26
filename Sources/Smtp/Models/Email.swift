@@ -114,7 +114,7 @@ extension Email {
             for attachment in attachments {
                 out.writeString("Content-type: \(attachment.contentType)\r\n")
                 out.writeString("Content-Transfer-Encoding: base64\r\n")
-                out.writeString("Content-Disposition: attachment; filename=\"\(attachment.name)\"\r\n\r\n")
+                out.writeString("Content-Disposition: attachment; filename=\"=?utf-8?B?\(attachment.name.base64String())?=\"\r\n\r\n")
                 out.writeString("\(attachment.data.base64EncodedString(options: [.lineLength76Characters]))\r\n")
                 out.writeString("--\(boundary)\r\n")
             }
